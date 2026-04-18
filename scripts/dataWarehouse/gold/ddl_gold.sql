@@ -1,95 +1,176 @@
 /*
 ===============================================================================
-DDL Script: Create Gold Views
+DDL + Load Procedures: Gold Layer — Physical Tables (Star Schema)
 ===============================================================================
-Script Purpose:
-    This script creates views for the Gold layer in the data warehouse. 
-    The Gold layer represents the final dimension and fact tables (Star Schema)
-
-    Each view performs transformations and combines data from the Silver layer 
-    to produce a clean, enriched, and business-ready dataset.
-
-Usage:
-    - These views can be queried directly for analytics and reporting.
+  Includes:
+    1. Physical dimension & fact tables with all indexes
+    2. Clustered columnstore index on fact_sales
+    3. dw_load_log control table
+    4. Load procedures:
+         load_dim_date
+         load_dim_customers_scd   (SCD Type 2)
+         load_dim_products_scd    (SCD Type 2)
+         load_fact_sales
 ===============================================================================
 */
 
--- =============================================================================
--- Create Dimension: gold.dim_customers
--- =============================================================================
-IF OBJECT_ID('gold.dim_customers', 'V') IS NOT NULL
-    DROP VIEW gold.dim_customers;
+-- ============================================================
+-- SECTION 1: Physical Tables
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 1a. dim_customers  (SCD Type 2)
+-- ------------------------------------------------------------
+IF OBJECT_ID('gold.dim_customers', 'U') IS NOT NULL DROP TABLE gold.dim_customers;
 GO
 
-CREATE VIEW gold.dim_customers AS
-SELECT
-    ROW_NUMBER() OVER (ORDER BY cst_id) AS customer_key, -- Surrogate key
-    ci.cst_id                          AS customer_id,
-    ci.cst_key                         AS customer_number,
-    ci.cst_firstname                   AS first_name,
-    ci.cst_lastname                    AS last_name,
-    la.cntry                           AS country,
-    ci.cst_marital_status              AS marital_status,
-    CASE 
-        WHEN ci.cst_gndr != 'n/a' THEN ci.cst_gndr -- CRM is the primary source for gender
-        ELSE COALESCE(ca.gen, 'n/a')  			   -- Fallback to ERP data
-    END                                AS gender,
-    ca.bdate                           AS birthdate,
-    ci.cst_create_date                 AS create_date
-FROM silver.crm_cust_info ci
-LEFT JOIN silver.erp_cust_az12 ca
-    ON ci.cst_key = ca.cid
-LEFT JOIN silver.erp_loc_a101 la
-    ON ci.cst_key = la.cid;
+CREATE TABLE gold.dim_customers (
+    customer_key     INT            NOT NULL IDENTITY(1,1),
+    customer_id      INT            NOT NULL,           -- BK: crm_cust_info.cst_id
+    customer_number  NVARCHAR(50)   NOT NULL,           -- BK: crm_cust_info.cst_key
+    first_name       NVARCHAR(50)   NULL,
+    last_name        NVARCHAR(50)   NULL,
+    country          NVARCHAR(50)   NULL,
+    marital_status   NVARCHAR(20)   NULL,
+    gender           NVARCHAR(10)   NULL,
+    birthdate        DATE           NULL,
+    create_date      DATE           NULL,
+    -- SCD Type 2 metadata
+    scd_start_date   DATE           NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    scd_end_date     DATE           NULL,               -- NULL = current record
+    scd_is_current   BIT            NOT NULL DEFAULT 1,
+    -- Audit
+    dw_insert_date   DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+    dw_update_date   DATETIME2      NULL,
+    CONSTRAINT pk_dim_customers PRIMARY KEY CLUSTERED (customer_key)
+);
 GO
 
--- =============================================================================
--- Create Dimension: gold.dim_products
--- =============================================================================
-IF OBJECT_ID('gold.dim_products', 'V') IS NOT NULL
-    DROP VIEW gold.dim_products;
+-- Lookup index on BK + currency flag (used heavily in fact loads)
+CREATE NONCLUSTERED INDEX ix_dim_customers_bk
+    ON gold.dim_customers (customer_id, scd_is_current)
+    INCLUDE (customer_key);
 GO
 
-CREATE VIEW gold.dim_products AS
-SELECT
-    ROW_NUMBER() OVER (ORDER BY pn.prd_start_dt, pn.prd_key) AS product_key, -- Surrogate key
-    pn.prd_id       AS product_id,
-    pn.prd_key      AS product_number,
-    pn.prd_nm       AS product_name,
-    pn.cat_id       AS category_id,
-    pc.cat          AS category,
-    pc.subcat       AS subcategory,
-    pc.maintenance  AS maintenance,
-    pn.prd_cost     AS cost,
-    pn.prd_line     AS product_line,
-    pn.prd_start_dt AS start_date
-FROM silver.crm_prd_info pn
-LEFT JOIN silver.erp_px_cat_g1v2 pc
-    ON pn.cat_id = pc.id
-WHERE pn.prd_end_dt IS NULL; -- Filter out all historical data
+-- ------------------------------------------------------------
+-- 1b. dim_products  (SCD Type 2)
+-- ------------------------------------------------------------
+IF OBJECT_ID('gold.dim_products', 'U') IS NOT NULL DROP TABLE gold.dim_products;
 GO
 
--- =============================================================================
--- Create Fact Table: gold.fact_sales
--- =============================================================================
-IF OBJECT_ID('gold.fact_sales', 'V') IS NOT NULL
-    DROP VIEW gold.fact_sales;
+CREATE TABLE gold.dim_products (
+    product_key      INT            NOT NULL IDENTITY(1,1),
+    product_id       INT            NOT NULL,           -- BK: crm_prd_info.prd_id
+    product_number   NVARCHAR(50)   NOT NULL,           -- BK: crm_prd_info.prd_key
+    product_name     NVARCHAR(100)  NULL,
+    category_id      NVARCHAR(50)   NULL,
+    category         NVARCHAR(50)   NULL,
+    subcategory      NVARCHAR(50)   NULL,
+    maintenance      NVARCHAR(50)   NULL,
+    cost             DECIMAL(18,2)  NULL,
+    product_line     NVARCHAR(50)   NULL,
+    -- SCD Type 2 metadata
+    scd_start_date   DATE           NOT NULL DEFAULT CAST(GETDATE() AS DATE),
+    scd_end_date     DATE           NULL,
+    scd_is_current   BIT            NOT NULL DEFAULT 1,
+    -- Audit
+    dw_insert_date   DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+    dw_update_date   DATETIME2      NULL,
+    CONSTRAINT pk_dim_products PRIMARY KEY CLUSTERED (product_key)
+);
 GO
 
-CREATE VIEW gold.fact_sales AS
-SELECT
-    sd.sls_ord_num  AS order_number,
-    pr.product_key  AS product_key,
-    cu.customer_key AS customer_key,
-    sd.sls_order_dt AS order_date,
-    sd.sls_ship_dt  AS shipping_date,
-    sd.sls_due_dt   AS due_date,
-    sd.sls_sales    AS sales_amount,
-    sd.sls_quantity AS quantity,
-    sd.sls_price    AS price
-FROM silver.crm_sales_details sd
-LEFT JOIN gold.dim_products pr
-    ON sd.sls_prd_key = pr.product_number
-LEFT JOIN gold.dim_customers cu
-    ON sd.sls_cust_id = cu.customer_id;
+CREATE NONCLUSTERED INDEX ix_dim_products_bk
+    ON gold.dim_products (product_id, scd_is_current)
+    INCLUDE (product_key);
+GO
+
+CREATE NONCLUSTERED INDEX ix_dim_products_number
+    ON gold.dim_products (product_number, scd_is_current)
+    INCLUDE (product_key);
+GO
+
+-- ------------------------------------------------------------
+-- 1c. dim_date  (static calendar — no SCD needed)
+-- ------------------------------------------------------------
+IF OBJECT_ID('gold.dim_date', 'U') IS NOT NULL DROP TABLE gold.dim_date;
+GO
+
+CREATE TABLE gold.dim_date (
+    date_key         DATE           NOT NULL,           -- PK is the date itself (readable)
+    year             SMALLINT       NOT NULL,
+    quarter          TINYINT        NOT NULL,
+    month_number     TINYINT        NOT NULL,
+    month_name       NVARCHAR(10)   NOT NULL,
+    week_number      TINYINT        NOT NULL,
+    day_of_week      TINYINT        NOT NULL,           -- 1=Sun … 7=Sat (DATEFIRST-aware)
+    day_name         NVARCHAR(10)   NOT NULL,
+    is_weekend       BIT            NOT NULL DEFAULT 0,
+    is_holiday       BIT            NOT NULL DEFAULT 0,
+    CONSTRAINT pk_dim_date PRIMARY KEY CLUSTERED (date_key)
+);
+GO
+
+-- ------------------------------------------------------------
+-- 1d. fact_sales
+-- ------------------------------------------------------------
+IF OBJECT_ID('gold.fact_sales', 'U') IS NOT NULL DROP TABLE gold.fact_sales;
+GO
+
+CREATE TABLE gold.fact_sales (
+    order_number     NVARCHAR(50)   NOT NULL,
+    product_key      INT            NOT NULL,
+    customer_key     INT            NOT NULL,
+    date_key         DATE           NOT NULL,
+    order_date       DATE           NULL,
+    shipping_date    DATE           NULL,
+    due_date         DATE           NULL,
+    sales_amount     DECIMAL(18,2)  NULL,
+    quantity         INT            NULL,
+    price            DECIMAL(18,2)  NULL,
+    -- Audit
+    dw_insert_date   DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT pk_fact_sales PRIMARY KEY NONCLUSTERED (order_number),
+    CONSTRAINT fk_fact_sales_product  FOREIGN KEY (product_key)  REFERENCES gold.dim_products  (product_key),
+    CONSTRAINT fk_fact_sales_customer FOREIGN KEY (customer_key) REFERENCES gold.dim_customers (customer_key),
+    CONSTRAINT fk_fact_sales_date     FOREIGN KEY (date_key)     REFERENCES gold.dim_date      (date_key)
+);
+GO
+
+-- Clustered columnstore for analytics workloads
+CREATE CLUSTERED COLUMNSTORE INDEX cci_fact_sales
+    ON gold.fact_sales;
+GO
+
+-- Supporting row-store indexes for FK lookups / selective queries
+CREATE NONCLUSTERED INDEX ix_fact_sales_customer
+    ON gold.fact_sales (customer_key);
+GO
+
+CREATE NONCLUSTERED INDEX ix_fact_sales_product
+    ON gold.fact_sales (product_key);
+GO
+
+CREATE NONCLUSTERED INDEX ix_fact_sales_date
+    ON gold.fact_sales (date_key);
+GO
+
+-- ============================================================
+-- SECTION 2: Control / Audit Table
+-- ============================================================
+IF OBJECT_ID('gold.dw_load_log', 'U') IS NOT NULL DROP TABLE gold.dw_load_log;
+GO
+
+CREATE TABLE gold.dw_load_log (
+    log_id           INT            NOT NULL IDENTITY(1,1),
+    procedure_name   NVARCHAR(128)  NOT NULL,
+    load_start       DATETIME2      NOT NULL,
+    load_end         DATETIME2      NULL,
+    rows_inserted    INT            NULL DEFAULT 0,
+    rows_updated     INT            NULL DEFAULT 0,
+    rows_expired     INT            NULL DEFAULT 0,     -- SCD Type 2 expirations
+    status           NVARCHAR(20)   NOT NULL DEFAULT 'RUNNING',   -- RUNNING | SUCCESS | FAILED
+    error_message    NVARCHAR(4000) NULL,
+    CONSTRAINT pk_dw_load_log PRIMARY KEY CLUSTERED (log_id)
+);
 GO
