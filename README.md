@@ -1,110 +1,141 @@
-# Projet d'Entrepôt de Données et d'Analyse
+# Entrepôt de Données & Analyse BI avec Power BI
 
-Ce projet présente une solution complète d'entreposage et d'analyse de données, depuis la construction de l'entrepôt jusqu'à la génération d'informations exploitables. 
+![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=flat&logo=microsoft-sql-server&logoColor=white)
+![Power BI](https://img.shields.io/badge/Power%20BI-F2C811?style=flat&logo=powerbi&logoColor=black)
+![Architecture](https://img.shields.io/badge/Architecture-Médaillon-blue?style=flat)
+![Statut](https://img.shields.io/badge/Statut-Complété-brightgreen?style=flat)
 
----
-
-## 🏗️ Architecture des Données
-
-L'architecture des données de ce projet suit l'**Architecture Médaillon** en trois couches : **Bronze**, **Argent** et **Or** :
-
-![Architecture des données](docs/architecture_entrepot_donnees_fr.png)
-
-1. **Couche Bronze** : Stocke les données brutes telles qu'elles proviennent des systèmes sources. Les données sont ingérées depuis des fichiers CSV vers une base de données SQL Server.
-2. **Couche Argent** : Cette couche comprend les processus de nettoyage, de standardisation et de normalisation des données afin de les préparer à l'analyse.
-3. **Couche Or** : Contient les données prêtes à l'emploi pour les métiers, modélisées selon un schéma en étoile adapté aux besoins de reporting et d'analyse.
+> Projet universitaire — Ingénierie des données & Business Intelligence  
+> **Auteure :** Abdessettar Fatima-Ezzahra
 
 ---
 
-## 📖 Présentation du Projet
+## Contexte & Problématique
 
-Ce projet comprend :
+Dans un contexte où les organisations génèrent des volumes croissants de données hétérogènes issues de systèmes distincts (CRM, ERP), la consolidation et l'exploitation de ces données constituent un enjeu stratégique majeur pour la prise de décision.
 
-1. **Architecture des Données** : Conception d'un entrepôt de données moderne selon l'Architecture Médaillon (couches Bronze, Argent et Or).
-2. **Pipelines ETL** : Extraction, transformation et chargement des données depuis les systèmes sources vers l'entrepôt.
-3. **Modélisation des Données** : Développement de tables de faits et de dimensions optimisées pour les requêtes analytiques.
-4. **Analyse et Reporting** : Création de rapports SQL et de tableaux de bord pour des informations exploitables.
-
-🎯 Ce dépôt constitue une ressource de valeur pour les étudiants et professionnels souhaitant démontrer leur expertise dans les domaines suivants :
-- Développement SQL
-- Architecture des Données
-- Ingénierie des Données
-- Développement de Pipelines ETL
-- Modélisation des Données
-- Analyse de Données
+Ce projet propose une implémentation complète d'un **entrepôt de données moderne** — de l'ingestion des données brutes jusqu'à la visualisation analytique — en s'appuyant sur l'**Architecture Médaillon** (Bronze / Argent / Or). Cette approche, préférée à des modèles alternatifs comme le Data Vault ou le schéma en flocon de neige, a été retenue pour sa lisibilité, sa modularité et son alignement avec les pratiques actuelles de l'industrie.
 
 ---
 
-## 🛠️ Liens et Outils Importants
+## Architecture des Données
 
-- **[Jeux de données](datasets/)** : Accès aux données du projet (fichiers CSV).
-- **[SQL Server Express](https://www.microsoft.com/en-us/sql-server/sql-server-downloads)** : Serveur léger pour héberger votre base de données SQL.
-- **[SQL Server Management Studio (SSMS)](https://learn.microsoft.com/en-us/sql/ssms/download-sql-server-management-studio-ssms?view=sql-server-ver16)** : Interface graphique pour gérer et interagir avec les bases de données.
-- **[Dépôt Git](https://github.com/)** : Créer un compte GitHub pour gérer, versionner et collaborer efficacement sur le code.
-- **[DrawIO](https://www.drawio.com/)** : Outil de conception pour les architectures de données, les modèles, les flux et les diagrammes.
+![Architecture Médaillon](docs/architecture_entrepot_donnees_fr.png)
 
----
+Le projet repose sur une organisation en trois couches progressives :
 
-## 🚀 Cahier des Charges
+| Couche | Rôle | Sources |
+|--------|------|---------|
+| **Bronze** | Ingestion des données brutes sans transformation | CRM : `cust_info.csv`, `prd_info.csv`, `sales_details.csv` / ERP : `CUST_AZ12.csv`, `LOC_A101.csv`, `PX_CAT_G1V2.csv` |
+| **Argent** | Nettoyage, déduplication, standardisation, enrichissement | Vues Silver issues des tables Bronze |
+| **Or** | Modèle en étoile optimisé pour l'analyse décisionnelle | Dimensions clients/produits, table de faits ventes |
 
-### Construction de l'Entrepôt de Données (Ingénierie des Données)
-
-#### Objectif
-Développer un entrepôt de données moderne à l'aide de SQL Server afin de centraliser les données de vente, permettant ainsi la production de rapports analytiques et la prise de décisions éclairées.
-
-#### Spécifications
-- **Sources de données** : Importation des données depuis deux systèmes sources (ERP et CRM) fournis sous forme de fichiers CSV.
-- **Qualité des données** : Nettoyage et résolution des problèmes de qualité des données avant toute analyse.
-- **Intégration** : Combinaison des deux sources en un modèle de données unique et convivial, conçu pour les requêtes analytiques.
-- **Périmètre** : Focalisation sur le jeu de données le plus récent uniquement ; l'historisation des données n'est pas requise.
-- **Documentation** : Fourniture d'une documentation claire du modèle de données pour les parties prenantes métier et les équipes analytiques.
+> Voir également : [`flux_donnees_medallion.drawio`](docs/flux_donnees_medallion.drawio), [`medallion.drawio`](docs/medallion.drawio), [`star_schema2.png`](docs/star_schema2.png)
 
 ---
 
-### BI : Analyse et Reporting (Analyse des Données)
+## Objectifs du Projet
 
-#### Objectif
-Développer des analyses SQL pour produire des informations détaillées sur :
-- **Le comportement des clients**
-- **La performance des produits**
-- **Les tendances des ventes**
-
-Ces analyses fournissent aux parties prenantes des indicateurs clés métier, permettant une prise de décision stratégique.
-
-Pour plus de détails, consulter [docs/requirements.md](docs/requirements.md).
+1. **Pipeline ETL complet** : Conception et implémentation de procédures stockées couvrant les trois couches de l'entrepôt.
+2. **Analyse exploratoire (EDA)** : Profiling des données, détection des anomalies, distribution des variables clés.
+3. **Analyses BI avancées** : Segmentation clients (RFM), évolution temporelle des ventes, performance par catégorie de produits.
+4. **Qualité des données** : Scripts de validation et tests d'intégrité à chaque étape du pipeline.
+5. **Visualisation** : Tableaux de bord interactifs sous Power BI pour le reporting décisionnel.
 
 ---
 
-## 📂 Structure du Dépôt
+## Environnement Technique
+
+| Composant | Outil / Technologie |
+|-----------|---------------------|
+| Base de données | SQL Server Express |
+| Interface SQL | SQL Server Management Studio (SSMS) |
+| Visualisation | Microsoft Power BI |
+| Modélisation | Draw.io (`.drawio`) |
+| Versionning | Git / GitHub |
+
+**Jeux de données :** [`datasets/crm/`](datasets/crm/) et [`datasets/erp/`](datasets/erp/)  
+**Catalogue de données :** [`docs/data_catalog.md`](docs/data_catalog.md)
+
+---
+
+## Implémentation Technique
+
+### Ingénierie des Données (ETL)
+
+| Étape | Script(s) |
+|-------|-----------|
+| Initialisation de la base | [`init_db.sql`](scripts/dataWarehouse/init_db.sql) |
+| Bronze — DDL | [`ddl_bronze.sql`](scripts/dataWarehouse/bronze/ddl_bronze.sql) |
+| Bronze — Chargement | [`proc_load_bronze.sql`](scripts/dataWarehouse/bronze/proc_load_bronze.sql) |
+| Silver — DDL | [`ddl_silver.sql`](scripts/dataWarehouse/silver/ddl_silver.sql) |
+| Silver — Transformation | [`proc_load_silver.sql`](scripts/dataWarehouse/silver/proc_load_silver.sql) |
+| Gold — DDL | [`ddl_gold.sql`](scripts/dataWarehouse/gold/ddl_gold.sql) |
+| Gold — Agrégations | [`procedures.sql`](scripts/dataWarehouse/gold/procedures.sql) |
+
+### Analyses BI
+
+Les analyses sont organisées en deux niveaux :
+
+**Exploration (EDA)** — [`scripts/data_analysis/EDA/`](scripts/data_analysis/EDA/)  
+Profiling initial, distributions, valeurs manquantes, détection d'outliers.
+
+**Analyses avancées** — [`scripts/data_analysis/Advanced/`](scripts/data_analysis/Advanced/)
+
+| Analyse | Fichier |
+|---------|---------|
+| Évolution temporelle des ventes | [`01_change_over_time_analysis.sql`](scripts/data_analysis/Advanced/01_change_over_time_analysis.sql) |
+| Rapport clients (segmentation, RFM) | [`06_report_customers.sql`](scripts/data_analysis/Advanced/06_report_customers.sql) |
+| *(autres analyses)* | `02` à `05`, `07`... |
+
+### Tests & Validation
+
+Tests de qualité des données à chaque étape du pipeline : [`tests/test_loading_proc.sql`](tests/test_loading_proc.sql)
+
+---
+
+## Compétences Mobilisées
+
+- Modélisation dimensionnelle (schéma en étoile, grain de fait, dimensions conformées)
+- Conception et optimisation de pipelines ETL en SQL procédural
+- Nettoyage et standardisation de données multi-sources hétérogènes
+- Analyse exploratoire et segmentation client (RFM)
+- Construction de tableaux de bord décisionnels sous Power BI
+- Mise en place de tests de qualité et validation des données
+
+---
+
+## Structure du Projet
 
 ```
-data-warehouse-project/
-│
-├── datasets/                           # Jeux de données bruts du projet (données ERP et CRM)
-│
-├── docs/                               # Documentation et détails d'architecture du projet
-│   ├── etl.drawio                      # Fichier Draw.io illustrant les techniques et méthodes ETL
-│   ├── data_architecture.drawio        # Fichier Draw.io de l'architecture du projet
-│   ├── data_catalog.md                 # Catalogue des jeux de données (descriptions des champs et métadonnées)
-│   ├── data_flow.drawio                # Fichier Draw.io du diagramme de flux de données
-│   ├── data_models.drawio              # Fichier Draw.io des modèles de données (schéma en étoile)
-│   ├── naming-conventions.md           # Conventions de nommage pour les tables, colonnes et fichiers
-│
-├── scripts/                            # Scripts SQL pour l'ETL et les transformations
-│   ├── bronze/                         # Scripts d'extraction et de chargement des données brutes
-│   ├── silver/                         # Scripts de nettoyage et de transformation des données
-│   ├── gold/                           # Scripts de création des modèles analytiques
-│
-├── tests/                              # Scripts de tests et fichiers de contrôle qualité
-│
-├── README.md                           # Présentation du projet et instructions
-├── LICENSE                             # Informations de licence du dépôt
-├── .gitignore                          # Fichiers et répertoires exclus du suivi Git
-└── requirements.txt                    # Dépendances et prérequis du projet
+BI/
+├── README.md                        # Ce fichier
+├── TODO.md                          # Suivi des tâches
+├── datasets/
+│   ├── crm/                         # Clients, produits, ventes (CRM)
+│   └── erp/                         # Clients, localisations, catégories (ERP)
+├── docs/
+│   ├── architecture_entrepot_donnees_fr.png
+│   ├── data_catalog.md              # Catalogue des données
+│   ├── star_schema2.png             # Schéma en étoile
+│   └── *.drawio                     # Diagrammes de flux et modèles
+├── scripts/
+│   ├── dataWarehouse/
+│   │   ├── init_db.sql
+│   │   ├── bronze/
+│   │   ├── silver/
+│   │   └── gold/
+│   └── data_analysis/
+│       ├── EDA/                     # Exploration initiale
+│       └── Advanced/                # Analyses BI approfondies
+└── tests/
+    └── test_loading_proc.sql        # Tests qualité
 ```
 
 ---
 
-## 🌟 À Propos
+## Références
 
-Bonjour ! Je suis **Abdessettar Fatima-Ezzahra**, étudiante en ingénierie informatique, passionnée le traitement des données de manière accessible et engageante.
+- Kimball, R. & Ross, M. (2013). *The Data Warehouse Toolkit*, 3rd ed. Wiley.
+- Inmon, W.H. (2005). *Building the Data Warehouse*, 4th ed. Wiley.
+- Microsoft. (2024). *Medallion Architecture — Azure Databricks Documentation*. [lien](https://learn.microsoft.com/en-us/azure/databricks/lakehouse/medallion)
