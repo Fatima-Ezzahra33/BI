@@ -3,9 +3,8 @@
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=flat&logo=microsoft-sql-server&logoColor=white)
 ![Power BI](https://img.shields.io/badge/Power%20BI-F2C811?style=flat&logo=powerbi&logoColor=black)
 ![Architecture](https://img.shields.io/badge/Architecture-Médaillon-blue?style=flat)
-![Statut](https://img.shields.io/badge/Statut-Complété-brightgreen?style=flat)
 
-> Projet universitaire — Ingénierie des données & Business Intelligence  
+> Projet Ingénierie des données & Business Intelligence  
 > **Auteure :** Abdessettar Fatima-Ezzahra
 
 ---
