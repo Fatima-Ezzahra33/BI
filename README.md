@@ -8,7 +8,7 @@ Ce projet présente une solution complète d'entreposage et d'analyse de donnée
 
 L'architecture des données de ce projet suit l'**Architecture Médaillon** en trois couches : **Bronze**, **Argent** et **Or** :
 
-![Architecture des données](docs/data_architecture.png)
+![Architecture des données](docs/architecture_entrepot_donnees_fr.png)
 
 1. **Couche Bronze** : Stocke les données brutes telles qu'elles proviennent des systèmes sources. Les données sont ingérées depuis des fichiers CSV vers une base de données SQL Server.
 2. **Couche Argent** : Cette couche comprend les processus de nettoyage, de standardisation et de normalisation des données afin de les préparer à l'analyse.
